@@ -1,8 +1,53 @@
 # OmniFit
 
-A microservices fitness-tracking platform: log workouts, get AI-generated recommendations
-per activity. Rebuilt from the ground up on the same stack as the original course project,
-with real authentication/authorization, and a real frontend design pass.
+![Java](https://img.shields.io/badge/Java-23-orange)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.3-brightgreen)
+![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2024.0.0-brightgreen)
+![React](https://img.shields.io/badge/React-19-61DAFB)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+A microservices fitness-tracking platform: log a workout, get an AI-generated
+recommendation for it. Six Spring Boot services behind an API gateway, Keycloak for
+identity, RabbitMQ carrying events between services, and a React frontend — built and
+verified end to end, not just scaffolded.
+
+## Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Running the backend](#running-the-backend)
+- [Running the frontend](#running-the-frontend)
+- [Verifying it's all working](#verifying-its-all-working)
+- [Security notes](#security-notes)
+- [License](#license)
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Dashboard, light mode](docs/screenshots/dashboard-light.png) | ![Dashboard, dark mode](docs/screenshots/dashboard-dark.png) |
+| ![Sign-in screen](docs/screenshots/login.png) | ![Activity detail with AI recommendation](docs/screenshots/activity-detail.png) |
+
+## Features
+
+- **OAuth2 Authorization Code + PKCE login** against Keycloak — no password ever touches
+  this codebase; the frontend never sees a client secret.
+- **Role-based access control** (`USER` / `ADMIN`) enforced at every layer: the gateway maps
+  Keycloak roles onto Spring authorities, and every resource read is self-or-admin scoped —
+  not just "are you logged in."
+- **Reactive backend, genuinely** — WebFlux, `ReactiveMongoRepository`, non-blocking
+  `WebClient` calls throughout activityservice and aiservice, not blocking code with a
+  reactive dependency sitting unused.
+- **Event-driven AI recommendations** — tracking an activity publishes to RabbitMQ;
+  aiservice consumes it, calls the Gemini API, and stores a structured recommendation
+  (performance analysis, improvements, next-workout suggestions, safety notes).
+- **Defense in depth at the network boundary** — every backend service rejects requests
+  that didn't pass through the gateway's JWT check, closing the gap where services also
+  bind to `localhost` in local dev.
+- **Per-user rate limiting** at the gateway, in-memory, no extra infrastructure required.
 
 ## Architecture
 
@@ -38,7 +83,7 @@ Spring Cloud Gateway, Postgres + JPA, MongoDB + reactive Spring Data, RabbitMQ, 
 - Java 23, Maven
 - Node 18+
 - Docker Desktop (Postgres, MongoDB, RabbitMQ, Keycloak all run in containers)
-- A Gemini API key ([aistudio.google.com](https://aistudio.google.com)) - only needed for `aiservice`
+- A Gemini API key ([aistudio.google.com](https://aistudio.google.com)) — only needed for `aiservice`
 
 ## Setup
 
@@ -77,7 +122,7 @@ cd aiservice && mvn clean package && \
   java -jar target/aiservice-0.0.1-SNAPSHOT.jar &
 ```
 
-Give it ~30-40 seconds after everything's started before hitting the gateway - Eureka
+Give it ~30-40 seconds after everything's started before hitting the gateway — Eureka
 clients cache the registry and only refresh every 30s, so a service that *just* registered
 can briefly look unavailable to the gateway's load balancer.
 
@@ -103,25 +148,29 @@ node scripts/smoke-test.mjs
 
 Exercises the whole stack: token issuance, JWT verification, role mapping, unauthenticated
 rejection, activity tracking, ownership enforcement (a regular user can't read another
-user's data; an admin can), and the full RabbitMQ -> Gemini -> Mongo recommendation
+user's data; an admin can), and the full RabbitMQ → Gemini → Mongo recommendation
 pipeline. Takes up to ~90s (waiting on the AI call).
 
 ## Security notes
 
 What's actually enforced, not just present:
 - Every backend service (not just the gateway) rejects requests missing a shared internal
-  secret the gateway stamps on every proxied call - closes the gap where, on one dev
+  secret the gateway stamps on every proxied call — closes the gap where, on one dev
   machine, every service also binds to `localhost` and is directly reachable.
-- Ownership checks (`self-or-admin`) on every resource read, not just route-level "is this
-  person logged in" - userservice profiles, activities, and recommendations all check this.
+- Ownership checks (self-or-admin) on every resource read, not just route-level "is this
+  person logged in" — userservice profiles, activities, and recommendations all check this.
 - Gateway rate-limits per authenticated user (100 req/min, in-memory fixed window).
-- No password is ever stored outside Keycloak - not even a placeholder.
+- No password is ever stored outside Keycloak — not even a placeholder.
 
 Known, deliberate dev-only tradeoffs (would need to change for a real deployment):
-- `docker/keycloak/realm-export.json` has the two seed users' passwords in plaintext -
+- `docker/keycloak/realm-export.json` has the two seed users' passwords in plaintext —
   fine for throwaway local accounts, not something you'd do with real credentials.
 - The rate limiter and the internal-secret check both assume a single gateway instance;
   the docstrings on `RateLimitGlobalFilter` and `InternalAuthHeaderFilter` note the
   upgrade path (Redis-backed limiter, real network isolation) if this ever needs to scale.
 - Everything runs over plain HTTP locally. A real deployment needs TLS in front of the
   gateway and Keycloak at minimum.
+
+## License
+
+[MIT](LICENSE)
