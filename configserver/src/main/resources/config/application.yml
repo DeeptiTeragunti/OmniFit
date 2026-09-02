@@ -1,0 +1,9 @@
+# Shared across every configserver client (Spring Cloud Config's "application.yml" convention -
+# merged in for every service regardless of spring.application.name).
+#
+# On Windows/WSL, Eureka's default self-registration uses the machine's local hostname, which
+# can resolve to a virtual adapter name (e.g. *.mshome.net) that nothing else on the network can
+# actually look up in DNS. Registering by IP instead sidesteps that entirely.
+eureka:
+  instance:
+    prefer-ip-address: true
