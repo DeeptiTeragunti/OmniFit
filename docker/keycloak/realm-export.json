@@ -1,0 +1,84 @@
+{
+  "realm": "fitness-oauth2",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": true,
+  "sslRequired": "external",
+  "roles": {
+    "realm": [
+      { "name": "USER", "description": "Standard OmniFit user" },
+      { "name": "ADMIN", "description": "Administrative access" },
+      {
+        "name": "default-roles-fitness-oauth2",
+        "description": "${role_default-roles}",
+        "composite": true,
+        "clientRole": false,
+        "composites": {
+          "realm": ["USER"]
+        }
+      }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-fitness-oauth2",
+    "composite": true,
+    "clientRole": false
+  },
+  "clients": [
+    {
+      "clientId": "oauth2-pkce-client",
+      "name": "OmniFit Web (PKCE)",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["basic", "web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "microprofile-jwt"]
+    },
+    {
+      "clientId": "test-cli",
+      "name": "Dev/CI token helper (password grant, curl only - never used by the app itself)",
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [],
+      "webOrigins": [],
+      "defaultClientScopes": ["basic", "web-origins", "acr", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "microprofile-jwt"]
+    }
+  ],
+  "users": [
+    {
+      "username": "alice",
+      "email": "alice@omnifit.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Alice",
+      "lastName": "Runner",
+      "credentials": [{ "type": "password", "value": "Passw0rd!", "temporary": false }],
+      "realmRoles": ["USER"]
+    },
+    {
+      "username": "admin",
+      "email": "admin@omnifit.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "Passw0rd!", "temporary": false }],
+      "realmRoles": ["ADMIN", "USER"]
+    }
+  ]
+}
