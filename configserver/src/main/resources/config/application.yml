@@ -7,3 +7,11 @@
 eureka:
   instance:
     prefer-ip-address: true
+
+# Shared between the gateway (which stamps this header on every proxied request) and
+# userservice/activityservice/aiservice (which each reject any request missing it) - proves
+# a request actually passed through the gateway's JWT verification rather than hitting a
+# service directly. Change for any real deployment.
+internal:
+  api:
+    secret: ${INTERNAL_API_SECRET:local-dev-internal-secret-change-me}
