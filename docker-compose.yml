@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omnifit-postgres
+    environment:
+      POSTGRES_DB: fitness_user_db
+      POSTGRES_USER: fitness
+      POSTGRES_PASSWORD: fitness
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitness -d fitness_user_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongodb:
+    image: mongo:7
+    container_name: omnifit-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: omnifit-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: fitness
+      RABBITMQ_DEFAULT_PASS: fitness
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: omnifit-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8181:8080"
+    volumes:
+      # --import-realm uses an IGNORE_EXISTING strategy, so re-importing on top of a
+      # persisted DB is safe (it's a no-op once the realm already exists). Without this
+      # volume, start-dev's H2 DB lives only in the container's writable layer - every
+      # `docker compose down` + `up` would silently mint new user IDs for alice/admin,
+      # which then collide with userservice's Postgres rows (same email, new keycloakId).
+      - keycloak-data:/opt/keycloak/data
+      - ./docker/keycloak:/opt/keycloak/data/import
+
+volumes:
+  postgres-data:
+    name: omnifit-v2-postgres-data
+  mongo-data:
+    name: omnifit-v2-mongo-data
+  rabbitmq-data:
+    name: omnifit-v2-rabbitmq-data
+  keycloak-data:
+    name: omnifit-v2-keycloak-data
