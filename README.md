@@ -21,7 +21,6 @@ verified end to end, not just scaffolded.
 - [Running the backend](#running-the-backend)
 - [Running the frontend](#running-the-frontend)
 - [Verifying it's all working](#verifying-its-all-working)
-- [Security notes](#security-notes)
 - [License](#license)
 
 ## Screenshots
@@ -74,6 +73,11 @@ React (Vite/MUI/Redux) --PKCE login--> Keycloak (realm: fitness-oauth2)
   secret, so a direct call that bypasses the gateway (and its JWT check) is refused.
 ```
 
+Local dev runs everything over plain HTTP behind a single gateway instance — the rate
+limiter and internal-secret check are in-memory and assume that one instance (see the
+docstrings on `RateLimitGlobalFilter` and `InternalAuthHeaderFilter` for the Redis-backed /
+TLS upgrade path a real deployment would need).
+
 **Stack:** Java 23, Spring Boot 3.4.3, Spring Cloud 2024.0.0, Eureka, Spring Cloud Config,
 Spring Cloud Gateway, Postgres + JPA, MongoDB + reactive Spring Data, RabbitMQ, Keycloak
 (OAuth2 Authorization Code + PKCE), React 19 + Vite + MUI 6 + Redux Toolkit + react-router 7.
@@ -101,6 +105,10 @@ Wait for all four containers to report healthy (`docker compose ps`). Keycloak i
 |----------|-------------|--------------|
 | `alice`  | `Passw0rd!` | USER         |
 | `admin`  | `Passw0rd!` | ADMIN + USER |
+
+These are local-only seed accounts defined in `docker/keycloak/realm-export.json` — the
+passwords are plaintext there, which is fine for throwaway dev containers and never
+something you'd do with real credentials.
 
 ## Running the backend
 
@@ -150,26 +158,6 @@ Exercises the whole stack: token issuance, JWT verification, role mapping, unaut
 rejection, activity tracking, ownership enforcement (a regular user can't read another
 user's data; an admin can), and the full RabbitMQ → Gemini → Mongo recommendation
 pipeline. Takes up to ~90s (waiting on the AI call).
-
-## Security notes
-
-What's actually enforced, not just present:
-- Every backend service (not just the gateway) rejects requests missing a shared internal
-  secret the gateway stamps on every proxied call — closes the gap where, on one dev
-  machine, every service also binds to `localhost` and is directly reachable.
-- Ownership checks (self-or-admin) on every resource read, not just route-level "is this
-  person logged in" — userservice profiles, activities, and recommendations all check this.
-- Gateway rate-limits per authenticated user (100 req/min, in-memory fixed window).
-- No password is ever stored outside Keycloak — not even a placeholder.
-
-Known, deliberate dev-only tradeoffs (would need to change for a real deployment):
-- `docker/keycloak/realm-export.json` has the two seed users' passwords in plaintext —
-  fine for throwaway local accounts, not something you'd do with real credentials.
-- The rate limiter and the internal-secret check both assume a single gateway instance;
-  the docstrings on `RateLimitGlobalFilter` and `InternalAuthHeaderFilter` note the
-  upgrade path (Redis-backed limiter, real network isolation) if this ever needs to scale.
-- Everything runs over plain HTTP locally. A real deployment needs TLS in front of the
-  gateway and Keycloak at minimum.
 
 ## License
 
